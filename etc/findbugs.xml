@@ -1,7 +1,7 @@
 <FindbugsPlugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="findbugsplugin.xsd" 
         pluginid="dev-ops-style-check"
-        provider="Kevin Lubick and Justin Smith" 
+        provider="DevOps Style Checker" 
         website="http://github.com">
 
         <Detector class="detector.BadCommentsDetector" reports="BAD_COMMENTS" />
