@@ -30,7 +30,6 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 	private boolean srcInited;
 	private String[] sourceLines;
 	private String methodName;
-	private SourceLineAnnotation srcLineAnnotation;
 	
 	public BadCommentsDetector(final BugReporter bugReporter) {
 		this.bugReporter = bugReporter;
@@ -52,8 +51,13 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 		methodName = obj.getName();
 		sourceLines = getSourceLines(obj);
 		
+		SourceLineAnnotation methodAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
+		
 		out.println("Found method "+methodName);
-		out.println(Arrays.toString(sourceLines));
+		for (int i = methodAnnotation.getStartLine(); i < methodAnnotation.getEndLine();i++) {
+			out.println(sourceLines[i]);
+		}
+		
 		out.println();
 		
 		bugReporter.reportBug(new BugInstance(this, "BAD_COMMENTS", NORMAL_PRIORITY).addClass(this).addMethod(this));
@@ -74,7 +78,7 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 			return sourceLines;
 
 		try {
-			srcLineAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
+			SourceLineAnnotation srcLineAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
 			if (srcLineAnnotation != null)
 			{
 				SourceFinder sourceFinder = AnalysisContext.currentAnalysisContext().getSourceFinder();
