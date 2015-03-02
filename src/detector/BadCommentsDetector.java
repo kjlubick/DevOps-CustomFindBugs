@@ -1,13 +1,20 @@
 package detector;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.bcel.classfile.Method;
 
+import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
 import edu.umd.cs.findbugs.BytecodeScanningDetector;
 import edu.umd.cs.findbugs.SourceLineAnnotation;
@@ -44,6 +51,12 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 	public void visitMethod(final Method obj) {
 		methodName = obj.getName();
 		sourceLines = getSourceLines(obj);
+		
+		out.println("Found method "+methodName);
+		out.println(Arrays.toString(sourceLines));
+		out.println();
+		
+		bugReporter.reportBug(new BugInstance(this, "BAD_COMMENTS", NORMAL_PRIORITY).addClass(this).addMethod(this));
 	}
 	
 	/**
@@ -87,5 +100,21 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 		}
 		srcInited = true;
 		return sourceLines;
+	}
+	
+	
+	
+	
+	private static PrintStream out;
+
+	static {
+		try {
+			out = new PrintStream(new FileOutputStream("/tmp/findbugsConsole.txt"),true, StandardCharsets.UTF_8.name());
+			out.println("Hello source code checker");
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException(e);
+		} catch (UnsupportedEncodingException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }
