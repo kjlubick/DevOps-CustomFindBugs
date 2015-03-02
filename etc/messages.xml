@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MessageCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="messagecollection.xsd">
+
+        <Plugin>
+                <ShortDescription>Style Checker (for DevOps)</ShortDescription>
+                <Details>Provides a few detectors for style grievances to be used in a DevOps pipeline</Details>
+        </Plugin>
+
+        <Detector class="detector.BadCommentsDetector">
+                <Details>
+                        Finds Methods that don't have comments, but should
+                </Details>
+
+        </Detector>
+
+        <BugPattern type="BAD_COMMENTS">
+                <ShortDescription>Non-trivial method doesn't have comments</ShortDescription>
+                <LongDescription>Non-trivial method {1} doesn't have comments</LongDescription>
+                <Details>
+<![CDATA[
+<p>This method doesn't have any comments.  Self documenting code is great and what not, but consider adding design rationale.</p>
+]]>
+                </Details>
+        </BugPattern>
+
+        <BugCode abbrev="BC">Bad Comments</BugCode>
+</MessageCollection>
