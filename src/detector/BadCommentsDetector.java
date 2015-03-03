@@ -9,7 +9,6 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.bcel.classfile.Method;
@@ -29,7 +28,6 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 	private final BugReporter bugReporter;
 	private boolean srcInited;
 	private String[] sourceLines;
-	private String methodName;
 	
 	public BadCommentsDetector(final BugReporter bugReporter) {
 		this.bugReporter = bugReporter;
@@ -48,19 +46,34 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 	
 	@Override
 	public void visitMethod(final Method obj) {
-		methodName = obj.getName();
 		sourceLines = getSourceLines(obj);
 		
 		SourceLineAnnotation methodAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
 		
-		out.println("Found method "+methodName);
-		for (int i = methodAnnotation.getStartLine(); i < methodAnnotation.getEndLine();i++) {
-			out.println(sourceLines[i]);
+		boolean hasComment = false;
+		int nonEmptyLines = 0;
+		for (int i = methodAnnotation.getStartLine() - 1; i <= methodAnnotation.getEndLine();i++) {
+			if (sourceLines[i].indexOf("//") >= 0) {
+				hasComment = true;
+			}
+			if (sourceLines[i].matches("\\s*\\S.*")) {
+				nonEmptyLines++;
+			}
 		}
 		
-		out.println();
+		if (!hasComment && nonEmptyLines > 2) {
+			int priority = LOW_PRIORITY;
+			if (nonEmptyLines > 10) {
+				priority = NORMAL_PRIORITY;
+			}
+			if (nonEmptyLines > 25) {
+				priority = HIGH_PRIORITY;
+			}
+			bugReporter.reportBug(new BugInstance(this, "BAD_COMMENTS", priority)
+			.addClass(this)
+			.addMethod(this));
+		}
 		
-		bugReporter.reportBug(new BugInstance(this, "BAD_COMMENTS", NORMAL_PRIORITY).addClass(this).addMethod(this));
 	}
 	
 	/**
@@ -83,7 +96,7 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 			{
 				SourceFinder sourceFinder = AnalysisContext.currentAnalysisContext().getSourceFinder();
 				SourceFile sourceFile = sourceFinder.findSourceFile(srcLineAnnotation.getPackageName(), srcLineAnnotation.getSourceFile());
-				sourceReader = new BufferedReader(new InputStreamReader(sourceFile.getInputStream(), "UTF-8"));
+				sourceReader = new BufferedReader(new InputStreamReader(sourceFile.getInputStream(), StandardCharsets.UTF_8));
 
 				List<String> lines = new ArrayList<String>(100);
 				String line;

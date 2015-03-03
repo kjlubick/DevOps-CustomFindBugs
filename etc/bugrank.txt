@@ -1,1 +1,1 @@
--10 BugPattern BAD_COMMENTS
+-4 BugPattern BAD_COMMENTS
