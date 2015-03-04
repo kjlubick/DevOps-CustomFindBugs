@@ -1,6 +1,8 @@
 package detector;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -9,6 +11,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.bcel.classfile.Method;
@@ -47,11 +50,18 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 	@Override
 	public void visitMethod(final Method obj) {
 		sourceLines = getSourceLines(obj);
+		if (sourceLines == null) {
+			out.println("Source was null");
+			return;
+		}
 		
 		SourceLineAnnotation methodAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
 		
 		boolean hasComment = false;
 		int nonEmptyLines = 0;
+		if (methodAnnotation.getStartLine() < 0 || methodAnnotation.getEndLine() < 0) {
+			return;
+		}
 		for (int i = methodAnnotation.getStartLine() - 1; i <= methodAnnotation.getEndLine();i++) {
 			if (sourceLines[i].indexOf("//") >= 0) {
 				hasComment = true;
@@ -92,11 +102,12 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 
 		try {
 			SourceLineAnnotation srcLineAnnotation = SourceLineAnnotation.forEntireMethod(getClassContext().getJavaClass(), obj);
+			out.println("At "+new File(".").getAbsolutePath());
+			out.println("source line annotation "+srcLineAnnotation);
+			out.println(srcLineAnnotation.getSourcePath());
 			if (srcLineAnnotation != null)
 			{
-				SourceFinder sourceFinder = AnalysisContext.currentAnalysisContext().getSourceFinder();
-				SourceFile sourceFile = sourceFinder.findSourceFile(srcLineAnnotation.getPackageName(), srcLineAnnotation.getSourceFile());
-				sourceReader = new BufferedReader(new InputStreamReader(sourceFile.getInputStream(), StandardCharsets.UTF_8));
+				sourceReader = findSourceReader(srcLineAnnotation);
 
 				List<String> lines = new ArrayList<String>(100);
 				String line;
@@ -105,7 +116,7 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 				sourceLines = lines.toArray(new String[lines.size()]);
 			}
 		} catch (IOException ioe) {
-			//noop
+			ioe.printStackTrace(out);
 		}
 		finally {
 			try {
@@ -118,10 +129,94 @@ public class BadCommentsDetector extends BytecodeScanningDetector {
 		srcInited = true;
 		return sourceLines;
 	}
+
+	private BufferedReader findSourceReader(SourceLineAnnotation srcLineAnnotation) throws IOException {
+		
+		SourceFinder sourceFinder = AnalysisContext.currentAnalysisContext().getSourceFinder();
+		try {
+			SourceFile sourceFile = sourceFinder.findSourceFile(srcLineAnnotation.getPackageName(), srcLineAnnotation.getSourceFile());
+			return new BufferedReader(new InputStreamReader(sourceFile.getInputStream(), StandardCharsets.UTF_8));
+			
+		} catch (IOException e) {
+			out.println("Can't find source via normal methods.  Trying maven approach");
+		}
+		
+		File currentDir = new File(".").getAbsoluteFile();
+		
+		BufferedReader reader = findSrcRecursive(currentDir, srcLineAnnotation);
+		if (reader != null)
+			return reader;
+		throw new IOException("Could not find source for "+srcLineAnnotation);
+	}
 	
+	private BufferedReader findSrcRecursive(File currentDir, SourceLineAnnotation sla) throws IOException {
+		if (currentDir == null) {
+			return null;
+		}
+		out.println("In "+currentDir.getAbsolutePath());
+		String[] files = currentDir.list();
+		if (files == null || files.length == 0) {
+			return null;
+		}
+		// look for source
+		for(String f: files) {
+			out.println(f);
+			if ("src".equals(f)) {
+				return searchSrcForSLA(new File(currentDir, f), sla);
+			}
+		}
+		// no source? do it recursively.
+		
+		for(String f: files) {
+			if (f.startsWith(".")) {		//ignore hidden
+				continue;
+			}
+			BufferedReader retVal = findSrcRecursive(new File(currentDir, f), sla);
+			if (retVal != null) {
+				return retVal;
+			}
+		}
+		return null;
+	}
 	
-	
-	
+	private File findFolderWithName(File currentDir, String name) {
+		String[] files = currentDir.list();
+		if (files == null || files.length == 0) {
+			return null;
+		}
+		for(String f: files) {
+			if (name.equals(f)) {
+				return new File(currentDir, f);
+			}
+		}
+		return null;
+	}
+
+	private BufferedReader searchSrcForSLA(File currentDir, SourceLineAnnotation sla) throws IOException {
+		out.println("found src folder... looking in "+currentDir.getAbsolutePath());
+		currentDir = findFolderWithName(currentDir, "main");
+		if (currentDir == null) {
+			return null;
+		}
+		
+		currentDir = findFolderWithName(currentDir, "java");
+		if (currentDir == null) {
+			return null;
+		}
+		
+		File finalFile = new File(currentDir, sla.getSourcePath());
+		out.println("Looking at final file "+finalFile.getAbsolutePath());
+		
+		if (finalFile.exists()) {
+			return new BufferedReader(new InputStreamReader(new FileInputStream(finalFile), StandardCharsets.UTF_8));
+		}
+		
+		return null;
+	}
+
+
+
+
 	private static PrintStream out;
 
 	static {
